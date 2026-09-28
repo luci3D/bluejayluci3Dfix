@@ -189,6 +189,7 @@ Flags1: DS 1                            ; State flags. Reset upon motor_start
     Flag_Motor_Started BIT Flags1.4     ; Set when motor is started
     Flag_Dir_Change_Brake BIT Flags1.5  ; Set when braking before direction change in case of bidirectional operation
     Flag_High_Rpm BIT Flags1.6          ; Set when motor rpm is high (Comm_Period4x_H less than 2)
+    Flag_Dir_Change_Coast BIT Flags1.7  ; [3D fix] Set while coasting down (zero power) before a direction change
 
 Flags2: DS 1                            ; State flags. NOT reset upon motor_start
     ; BIT    Flags2.0
@@ -379,7 +380,7 @@ Eep_Pgm_Safety_Arm: DB DEFAULT_PGM_SAFETY_ARM ; Various flag settings: bit 0 is 
 
 Eep_Dummy: DB 0FFh                      ; EEPROM address for safety reason
 CSEG AT CSEG_NAME
-Eep_Name: DB "Bluejay (.1 RC1)"         ; Name tag (16 Bytes)
+Eep_Name: DB "Bluejay (3Dfix1)"         ; Name tag (16 Bytes)
 
 CSEG AT CSEG_MELODY
 Eep_Pgm_Beep_Melody: DB 2,58,4,32,52,66,13,0,69,45,13,0,52,66,13,0,78,39,211,0,69,45,208,25,52,25,0
@@ -949,40 +950,76 @@ run6_check_speed:
     jmp  run1                           ; No - go back to run 1
 
 run6_bidir:
-    ; Check if direction change braking is in progress
-    jb   Flag_Dir_Change_Brake, run6_bidir_braking
+    ; [3D fix] AM32-style reversal.
+    ; Old behaviour: brake by driving the motor 180 deg out of phase at the
+    ; requested reverse throttle, flip direction at ~5000 erpm while the rotor
+    ; was still spinning backwards, and usually desync -> 100ms stall restart.
+    ; New behaviour:
+    ;  1. Requested direction != spinning direction -> cut power but keep
+    ;     commutating, so back-EMF tracking (and sync) is never lost.
+    ;  2. Once slow enough, restart in place in the new direction using the
+    ;     normal startup sequence (no stall, no 100ms pause).
+    ;  3. If the stick comes back to the old direction while coasting, the
+    ;     coast is simply cancelled and power returns.
+    mov  C, Flag_Rcp_Dir_Rev            ; C = requested XOR actual direction
+    jnb  Flag_Motor_Dir_Rev, run6_bidir_dir_compared
+    cpl  C
 
-    ; Check if actual rotation direction matches force direction
-    jb   Flag_Motor_Dir_Rev, run6_bidir_check_reversal
-    jb   Flag_Rcp_Dir_Rev, run6_bidir_reversal
-    sjmp run6_check_speed
+run6_bidir_dir_compared:
+    jc   run6_bidir_mismatch
 
-run6_bidir_check_reversal:
-    jb   Flag_Rcp_Dir_Rev, run6_check_speed
+    clr  Flag_Dir_Change_Coast          ; Directions match - normal power
+    jmp  run6_check_speed
 
-run6_bidir_reversal:
-    ; Initiate direction and start braking
-    setb Flag_Dir_Change_Brake          ; Set brake flag
-    mov  Pwm_Limit_By_Rpm, Pwm_Limit_Beg; Set max power while braking to initial power limit
-    jmp  run4                           ; Go back to run 4,thereby changing force direction
+run6_bidir_mismatch:
+    setb Flag_Dir_Change_Coast          ; Cut power (applied in DShot ISR)
 
-run6_bidir_braking:
-    mov  Pwm_Limit_By_Rpm, Pwm_Limit_Beg; Set max power while braking to initial power limit
+    ; Stick centred (zero throttle): nothing to reverse into yet, just coast.
+    ; run6_check_speed exits run mode normally once the motor is slow.
+    jb   Flag_Rcp_Stop, run6_check_speed
 
     clr  C
-    mov  A, Comm_Period4x_H             ; Is Comm_Period4x below minimum speed?
-    subb A, #40h                        ; Bidirectional braking termination speed (~5000 erpm)
-    jc   run6_bidir_continue            ; No - continue braking
+    mov  A, Comm_Period4x_H             ; Slow enough to reverse?
+    subb A, #BIDIR_REVERSE_PERIOD_H
+    jc   run6_bidir_continue            ; No - keep coasting
 
-    ; Braking done, set new spinning direction
-    clr  Flag_Dir_Change_Brake          ; Clear braking flag
-    mov  C, Flag_Rcp_Dir_Rev            ; Read force direction
-    mov  Flag_Motor_Dir_Rev, C          ; Set spinning direction
-    setb Flag_Initial_Run_Phase
-    mov  Initial_Run_Rot_Cntd, #18
+    ljmp bidir_restart                  ; Yes - restart in the new direction
 
 run6_bidir_continue:
     jmp  run1                           ; Go back to run 1
+
+;**** **** **** **** **** **** **** **** **** **** **** **** ****
+;
+; [3D fix] Bidirectional restart in place
+;
+; Restarts the motor in the requested direction without going through
+; exit_run_mode: no clock switch, no stall bookkeeping and no 100ms wait
+; with interrupts disabled. Uses the regular startup sequence (startup power
+; limits, long zero-cross timeouts, many comparator samples).
+;
+; Entered from the main run loop or from a comparator timeout while coasting.
+; Stack must be at main-loop level.
+;
+;**** **** **** **** **** **** **** **** **** **** **** **** ****
+bidir_restart:
+    clr  IE_EA                          ; Disable interrupts
+    call switch_power_off
+
+    mov  Flags1, #0                     ; Clear run state (incl. coast/started/running)
+    clr  Flag_Startup_Phase             ; Startup flags are set again below
+    clr  Flag_Initial_Run_Phase
+
+    ; Same startup power limits as motor_start
+    mov  Temp2, #Pgm_Startup_Power_Max
+    mov  Pwm_Limit_Beg, @Temp2
+    mov  Pwm_Limit_By_Rpm, Pwm_Limit_Beg
+    mov  Pwm_Limit, Pwm_Limit_Beg
+    mov  Temp_Pwm_Level_Setpoint, Pwm_Limit_Beg
+
+    mov  C, Flag_Rcp_Dir_Rev            ; New spinning direction
+    mov  Flag_Motor_Dir_Rev, C
+
+    ljmp motor_start_bidir_done         ; Re-init commutation, enables interrupts
 
 ;**** **** **** **** **** **** **** **** **** **** **** **** ****
 ;
@@ -992,6 +1029,13 @@ run6_bidir_continue:
 ;
 ;**** **** **** **** **** **** **** **** **** **** **** **** ****
 exit_run_mode_on_timeout:
+    ; [3D fix] Lost sync while coasting before a reversal: just restart
+    ; in the new direction instead of treating it as a stall.
+    ; (If the stick is centred, fall through to a normal stop.)
+    jnb  Flag_Dir_Change_Coast, exit_run_mode_on_timeout_no_coast
+    jnb  Flag_Rcp_Stop, bidir_restart
+
+exit_run_mode_on_timeout_no_coast:
     jb   Flag_Motor_Running, exit_run_mode
     inc  Startup_Stall_Cnt              ; Increment stall count if motors did not properly start
 
@@ -1042,7 +1086,13 @@ ENDIF
     ; point so it is safe to jump to motor start, where a new initial state
     ; will be set
 
+    ; [3D fix] Keep DShot decoding alive while waiting. Power is off and the
+    ; state matches wait_for_start, so interrupts are safe here.
+    setb IE_EA
     call wait100ms                      ; Wait for a bit between stall restarts
+
+    ; If throttle went to zero during the wait, do not restart
+    jb   Flag_Rcp_Stop, exit_run_mode_no_stall
 
     ljmp motor_start                    ; Go back and try starting motors again
 

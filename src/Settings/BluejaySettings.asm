@@ -48,3 +48,11 @@ DEFAULT_PGM_STARTUP_POWER_MAX EQU 5     ; 0..255 => (1000..2000 Throttle): Maxim
 DEFAULT_PGM_BRAKING_STRENGTH EQU 255    ; 0..255 => 0..100 % Braking
 
 DEFAULT_PGM_SAFETY_ARM EQU 0            ; EDT safety arm is disabled by default
+
+; [3D fix] Bidirectional (3D) reversal speed threshold.
+; When the stick asks for the opposite direction, the motor coasts with zero
+; power (drag-braked by the braking strength setting) until Comm_Period4x_H
+; reaches this value, then restarts in the new direction.
+; Higher value = slower speed before reversing (smoother, a bit more delay).
+;   20h ~ 10000 erpm | 40h ~ 5000 erpm | 60h ~ 3300 erpm | 80h ~ 2500 erpm
+BIDIR_REVERSE_PERIOD_H EQU 40h

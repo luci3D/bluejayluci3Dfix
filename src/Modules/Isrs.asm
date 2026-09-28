@@ -232,6 +232,13 @@ t1_int_normal_range:
     ; Check for bidirectional operation (0=stop, 96-2095->fwd, 2096-4095->rev)
     jnb  Flag_Pgm_Bidir, t1_int_not_bidir ; If not bidirectional operation - branch
 
+    ; [3D fix] Zero throttle and DShot commands carry no direction information.
+    ; Keep the last requested direction instead of treating them as a
+    ; low-range (reverse) request, which used to trigger a spurious reversal.
+    mov  A, Temp4
+    orl  A, Temp5
+    jz   t1_int_not_bidir
+
     ; Subtract 2000 (still 12 bits)
     clr  C
     mov  A, Temp4
@@ -354,6 +361,13 @@ t1_int_zero_rcp_checked_set_limit:
     mov  Temp6, Pwm_Limit_By_Rpm
 
 t1_int_zero_rcp_checked_check_limit:
+    ; [3D fix] While coasting down before a direction change, drive no power.
+    ; The motor keeps commutating (and tracking back-EMF) exactly like it does
+    ; at zero throttle, so it slows down without losing sync.
+    jnb  Flag_Dir_Change_Coast, t1_int_zero_rcp_checked_check_limit_apply
+    mov  Temp6, #0
+
+t1_int_zero_rcp_checked_check_limit_apply:
     ; Check against limit
     clr  C
     mov  A, Temp6
