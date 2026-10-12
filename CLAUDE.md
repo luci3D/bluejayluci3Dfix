@@ -1,4 +1,4 @@
-# Bluejay 3D-fix fork — project notes for Claude
+# luci3Dfix (Bluejay fork) — project notes for Claude
 
 - 8051 assembly (Keil AX51 syntax) for EFM8BB21/BB51 BLDC ESCs. Entry: `src/Bluejay.asm`, modules in `src/Modules/`.
 - Goal of this fork: reliable bidirectional (3D) reversal, AM32-style. See `FORK_NOTES.md` for every change and the test plan.

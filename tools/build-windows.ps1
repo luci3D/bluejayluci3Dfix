@@ -11,7 +11,7 @@ param(
     [ValidateSet("H", "X")][string]$Mcu = "H",
     [int]$Deadtime = 30,
     [ValidateSet(24, 48, 96)][int]$Pwm = 48,
-    [string]$Version = "3dfix",
+    [string]$Version = "luci3Dfix",
     [string]$KeilPath = ""
 )
 

@@ -1,4 +1,4 @@
-# Bluejay 3D-fix fork
+# luci3Dfix — a Bluejay fork for reliable 3D mode
 
 Goal: make bidirectional (3D) mode reliable on 8-bit EFM8 ESCs by adopting the
 reversal strategy AM32 uses, while keeping the rest of Bluejay untouched.
@@ -7,7 +7,7 @@ Target hardware for first tests: **Happymodel Mobula8 (2023) AIO — ESC layout 
 (layout Z, EFM8BB21 MCU, deadtime 30). The STM32F411 on that board is the
 flight controller running Betaflight; the ESC side is the EFM8BB21.
 
-Branch: `feature/3d-reversal-rework`. Name tag shown in ESC Configurator: `Bluejay (3Dfix1)`.
+Branch: `feature/3d-reversal-rework`. Name tag shown in ESC Configurator: `Bluejayluci3Dfix` (16-character limit, keeps the Bluejay prefix).
 
 ## What changed and why
 
@@ -35,7 +35,7 @@ fast reversals.
    ```
    Use the PWM frequency you currently run (ESC Configurator shows it: 24/48/96).
    If Keil is elsewhere, add `-KeilPath "C:\path\to\keil_8051\9.60\BIN"`.
-3. Output: `build\hex\Z_H_30_48_3dfix.hex`.
+3. Output: `build\hex\Z_H_30_48_luci3Dfix.hex`.
 
 If assembly fails with a "target out of range" error, a short jump needs to
 become a long one — send me the `.LST` error lines.
@@ -47,7 +47,7 @@ become a long one — send me the `.LST` error lines.
    the current firmware/version and settings (and keep the stock Bluejay hex for
    `Z_H_30` handy so you can roll back).
 3. "Flash all" → *Select file manually* → the `.hex` above.
-4. After flashing, confirm name `Bluejay (3Dfix1)`, set **Motor direction =
+4. After flashing, confirm name `Bluejayluci3Dfix`, set **Motor direction =
    Bidirectional** (or leave it to Betaflight's 3D mode), braking strength 100%.
 
 ## Test plan (props OFF first, then props on in a safe place)
