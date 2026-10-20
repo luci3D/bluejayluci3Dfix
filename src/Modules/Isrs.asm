@@ -364,8 +364,13 @@ t1_int_zero_rcp_checked_check_limit:
     ; [3D fix] While coasting down before a direction change, drive no power.
     ; The motor keeps commutating (and tracking back-EMF) exactly like it does
     ; at zero throttle, so it slows down without losing sync.
+    ; Clear the 11-bit value too, so throttle below the 8-bit limit
+    ; resolution cannot leak through.
     jnb  Flag_Dir_Change_Coast, t1_int_zero_rcp_checked_check_limit_apply
-    mov  Temp6, #0
+    clr  A
+    mov  Temp2, A
+    mov  Temp4, A
+    mov  Temp5, A
 
 t1_int_zero_rcp_checked_check_limit_apply:
     ; Check against limit

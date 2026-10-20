@@ -1036,8 +1036,18 @@ exit_run_mode_on_timeout:
     jnb  Flag_Rcp_Stop, bidir_restart
 
 exit_run_mode_on_timeout_no_coast:
-    jb   Flag_Motor_Running, exit_run_mode
+    jb   Flag_Motor_Running, exit_run_mode_on_timeout_running
     inc  Startup_Stall_Cnt              ; Increment stall count if motors did not properly start
+    sjmp exit_run_mode
+
+exit_run_mode_on_timeout_running:
+    ; [3D fix] Desync while running in bidirectional mode with throttle:
+    ; restart in place (AM32-style) instead of a full stop with a 100ms pause.
+    ; Still reported as a stall over extended telemetry.
+    jnb  Flag_Pgm_Bidir, exit_run_mode
+    jb   Flag_Rcp_Stop, exit_run_mode
+    setb Flag_Stall_Notify
+    ljmp bidir_restart
 
 exit_run_mode:
     ; Disable all interrupts (they will be disabled for a while, be aware)

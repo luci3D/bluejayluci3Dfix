@@ -7,7 +7,7 @@ Target hardware for first tests: **Happymodel Mobula8 (2023) AIO — ESC layout 
 (layout Z, EFM8BB21 MCU, deadtime 30). The STM32F411 on that board is the
 flight controller running Betaflight; the ESC side is the EFM8BB21.
 
-Branch: `feature/3d-reversal-rework`. Name tag shown in ESC Configurator: `Bluejayluci3Dfix` (16-character limit, keeps the Bluejay prefix).
+Branch: `luci3Dfix`. Name tag shown in ESC Configurator: `Bluejayluci3Dfix` (16-character limit, keeps the Bluejay prefix).
 
 ## What changed and why
 
@@ -17,6 +17,7 @@ Branch: `feature/3d-reversal-rework`. Name tag shown in ESC Configurator: `Bluej
 | 2 | `src/Bluejay.asm` (`run6_bidir`) + ISR | Reversal = **coast with zero power while still commutating**, instead of driving the motor 180° out of phase at the requested throttle. New flag `Flag_Dir_Change_Coast` forces PWM to 0 in the DShot ISR. | Zero-power commutation is a state Bluejay already tracks reliably (same as zero throttle in the air). Old active braking used stick throttle (its intended limit was overwritten by `set_pwm_limit`). |
 | 3 | `src/Bluejay.asm` (`bidir_restart`) | Once `Comm_Period4x_H >= BIDIR_REVERSE_PERIOD_H`, restart **in place** through the normal startup sequence (startup power limits, long ZC timeouts, many comparator samples). | Old code flipped direction mid-spin without startup handling, then usually desynced → stall → 100 ms restart. |
 | 3b | `exit_run_mode_on_timeout` | A comparator timeout while coasting goes to `bidir_restart` instead of the stall path (stick centred → normal stop). | Avoid the stall counter / beeps / 100 ms pause on reversals. |
+| 3c | `exit_run_mode_on_timeout` | A desync (comparator timeout) while running in bidirectional mode with throttle also goes to `bidir_restart`, still flagged as a stall over EDT. Unidirectional mode is unchanged. | AM32 keeps going after a 3D desync instead of stopping; Bluejay used to cut the motor for 100 ms. Trade-off: a jammed motor in 3D retries at startup power without the 100 ms rest. |
 | 4 | stall restart path | Interrupts stay enabled during the 100 ms stall wait; restart is skipped if throttle went to zero. | DShot decoding and telemetry no longer black out for 100 ms. |
 | — | `src/Settings/BluejaySettings.asm` | New `BIDIR_REVERSE_PERIOD_H` (default `40h` ≈ 5000 erpm). | Tuning knob for when to reverse. |
 
