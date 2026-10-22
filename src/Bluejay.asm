@@ -878,7 +878,7 @@ run6:
     jnc  startup_phase_done
 
     jnb  Flag_Rcp_Stop, run1            ; If pulse is above stop value - Continue to run
-    sjmp exit_run_mode
+    ljmp exit_run_mode                  ; [3D fix] ljmp: run6_bidir grew, sjmp out of range
 
 startup_phase_done:
     ; Clear startup phase flag & remove pwm limits
@@ -899,7 +899,7 @@ initial_run_phase:
     jnb  Flag_Rcp_Stop, run1            ; Check if pulse is below stop value
     jb   Flag_Pgm_Bidir, run1           ; Check if bidirectional operation
 
-    sjmp exit_run_mode
+    ljmp exit_run_mode                  ; [3D fix] ljmp: run6_bidir grew, sjmp out of range
 
 initial_run_phase_done:
     clr  Flag_Initial_Run_Phase         ; Clear initial run phase flag
