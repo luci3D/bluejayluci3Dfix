@@ -1,5 +1,11 @@
 <img align="right" src="bluejay.svg" alt="Bluejay" width="250">
 
+> **This is Bluejay luci3Dfix**, a fork that reworks 3D (bidirectional) reversal the way
+> [AM32](https://github.com/am32-firmware/AM32) does it, to stop desyncs on 8-bit ESCs.
+> Currently it targets only the Happymodel Mobula8 (`Z_H_30`) and is experimental.
+> See **[3DFIX.md](3DFIX.md)** for what changed, how to build and how to test.
+> Everything below is the upstream Bluejay README.
+
 # Bluejay
 
 [![GitHub release (latest by date)](https://img.shields.io/github/downloads/bird-sanctuary/bluejay/latest/total?style=for-the-badge)](https://github.com/bird-sanctuary/bluejay/releases/latest)

@@ -1,7 +1,7 @@
 # luci3Dfix (Bluejay fork) — project notes for Claude
 
 - 8051 assembly (Keil AX51 syntax) for EFM8BB21/BB51 BLDC ESCs. Entry: `src/Bluejay.asm`, modules in `src/Modules/`.
-- Goal of this fork: reliable bidirectional (3D) reversal, AM32-style. Work branch: `luci3Dfix`. See `FORK_NOTES.md` for every change and the test plan.
+- Goal of this fork: reliable bidirectional (3D) reversal, AM32-style. Work branch: `luci3Dfix`. See `3DFIX.md` for every change and the test plan.
 - Test target: Mobula8 2023, layout `Z_H_30` (Z layout, MCU H = EFM8BB21, deadtime 30).
 - Build on Windows: `tools\build-windows.ps1 -Layout Z -Mcu H -Deadtime 30 -Pwm 48` (Keil 8051 from Simplicity Studio). Linux/CI: `make LAYOUT=Z MCU=H DEADTIME=30 PWM=48` (Keil under Wine).
 - Constraints: BB21 code must end before `CSEG_RESET` (19FDh); `jb/jnb/jc/jz/sjmp/djnz/cjne` are relative (±127 bytes) and `ajmp/acall` must stay in the same 2 KB page — prefer `ljmp`/`jmp` when code grows.
